@@ -1,0 +1,25 @@
+# Normalize line endings to avoid the LF/CRLF warnings.
+* text=auto
+
+# Unity YAML assets — treat as text, use Unity's smart merge where possible.
+*.cs            text diff=csharp
+*.shader        text
+*.unity         text
+*.asset         text
+*.prefab        text
+*.mat           text
+*.meta          text
+*.inputactions  text
+
+# Binary assets (don't try to diff/merge these).
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.psd   binary
+*.fbx   binary
+*.wav   binary
+*.mp3   binary
+*.ogg   binary
+*.ttf   binary
+*.dll   binary
