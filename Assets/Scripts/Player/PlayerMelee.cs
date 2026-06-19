@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using ZombieSurvival.Audio;
 using ZombieSurvival.Core;
 using ZombieSurvival.Zombies;
 
@@ -25,12 +26,16 @@ namespace ZombieSurvival.Player
 
         private Camera cam;
         private SurvivorState survivor;
+        private AudioSource sfx;
         private float cooldownTimer;
 
         private void Awake()
         {
             cam = GetComponentInChildren<Camera>();
             survivor = GetComponent<SurvivorState>();
+            sfx = gameObject.AddComponent<AudioSource>();
+            sfx.spatialBlend = 0f;
+            sfx.playOnAwake = false;
         }
 
         private void Update()
@@ -61,6 +66,8 @@ namespace ZombieSurvival.Player
                     bool headshot = hit.collider.name.Contains("Head");
                     zombie.Hit(force, headshot);
                     NoiseManager.Emit(hit.point, hitNoiseRadius);
+                    sfx.pitch = headshot ? 1.2f : Random.Range(0.9f, 1.05f);
+                    sfx.PlayOneShot(ProceduralSfx.Thud());
                 }
             }
         }

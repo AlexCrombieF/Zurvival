@@ -4,6 +4,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.AI;
 using Unity.AI.Navigation;
+using ZombieSurvival.Audio;
 using ZombieSurvival.Core;
 using ZombieSurvival.Player;
 using ZombieSurvival.UI;
@@ -127,6 +128,8 @@ namespace ZombieSurvival.EditorTools
             player.AddComponent<PlayerMelee>();
             player.AddComponent<PlayerInteractor>();
             player.AddComponent<PlayerHUD>();
+            player.AddComponent<PlayerFootstepAudio>();
+            player.AddComponent<ThreatResponse>();
             return player;
         }
 
@@ -170,6 +173,7 @@ namespace ZombieSurvival.EditorTools
 
                 z.AddComponent<ZombieHealth>();
                 z.AddComponent<ZombieAI>();
+                z.AddComponent<ZombieAudio>();
 
                 // A head child so headshots are detectable by name.
                 var head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
