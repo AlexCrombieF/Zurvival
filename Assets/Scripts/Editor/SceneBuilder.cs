@@ -170,43 +170,58 @@ namespace ZombieSurvival.EditorTools
                 if (!NavMesh.SamplePosition(random, out var hit, 8f, NavMesh.AllAreas))
                     continue;
 
-                var z = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-                z.name = "Zombie";
+                // Root carries the agent + logic; the "Rig" child holds the animatable body.
+                var z = new GameObject("Zombie");
                 z.transform.SetParent(parent);
-                z.transform.position = hit.position + Vector3.up;
-                z.GetComponent<Renderer>().sharedMaterial = mat;
+                z.transform.position = hit.position;
 
                 var agent = z.AddComponent<NavMeshAgent>();
-                agent.radius = 0.4f; agent.height = 1.9f; agent.baseOffset = 1f;
+                agent.radius = 0.4f; agent.height = 1.9f; agent.baseOffset = 0f;
                 agent.angularSpeed = 240f; agent.acceleration = 12f;
 
                 z.AddComponent<ZombieHealth>();
                 z.AddComponent<ZombieAI>();
                 z.AddComponent<ZombieAudio>();
+                z.AddComponent<ZombieAnimator>();
 
-                // A head child so headshots are detectable by name.
+                var rig = new GameObject("Rig").transform;
+                rig.SetParent(z.transform, false);
+
+                // Torso.
+                var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                body.name = "Body";
+                body.transform.SetParent(rig, false);
+                body.transform.localPosition = new Vector3(0f, 1f, 0f);
+                body.GetComponent<Renderer>().sharedMaterial = mat;
+
+                // Head (headshots detected by collider name).
                 var head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                 head.name = "Head";
-                head.transform.SetParent(z.transform);
-                head.transform.localPosition = new Vector3(0f, 0.9f, 0f);
+                head.transform.SetParent(rig, false);
+                head.transform.localPosition = new Vector3(0f, 1.95f, 0f);
                 head.transform.localScale = Vector3.one * 0.55f;
                 head.GetComponent<Renderer>().sharedMaterial = headMat;
 
-                // Outstretched arms — visible, and part of the body hitbox.
-                MakeZombieArm(z.transform, mat, true);
-                MakeZombieArm(z.transform, mat, false);
+                // Shoulder-pivoted arms so they swing/reach naturally.
+                MakeArm(rig, mat, true);
+                MakeArm(rig, mat, false);
             }
         }
 
-        private static void MakeZombieArm(Transform zombie, Material mat, bool left)
+        private static void MakeArm(Transform rig, Material mat, bool left)
         {
+            float side = left ? -1f : 1f;
+
+            var shoulder = new GameObject(left ? "ShoulderL" : "ShoulderR").transform;
+            shoulder.SetParent(rig, false);
+            shoulder.localPosition = new Vector3(0.3f * side, 1.45f, 0f);
+
             var arm = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             arm.name = "Arm";
-            arm.transform.SetParent(zombie);
-            float side = left ? -1f : 1f;
-            arm.transform.localPosition = new Vector3(0.42f * side, 0.35f, 0.35f);
-            arm.transform.localRotation = Quaternion.Euler(75f, 0f, 12f * side);
-            arm.transform.localScale = new Vector3(0.18f, 0.4f, 0.18f);
+            arm.transform.SetParent(shoulder, false);
+            arm.transform.localPosition = new Vector3(0f, -0.28f, 0.18f);
+            arm.transform.localRotation = Quaternion.Euler(20f, 0f, 0f);
+            arm.transform.localScale = new Vector3(0.16f, 0.34f, 0.16f);
             arm.GetComponent<Renderer>().sharedMaterial = mat;
         }
 

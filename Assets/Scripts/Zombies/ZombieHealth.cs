@@ -77,6 +77,8 @@ namespace ZombieSurvival.Zombies
             var agent = GetComponent<NavMeshAgent>();
             if (agent != null) agent.enabled = false;
             if (ai != null) ai.enabled = false;
+            var anim = GetComponent<ZombieAnimator>();
+            if (anim != null) anim.enabled = false; // stop animating so the corpse stays toppled
 
             transform.Rotate(90f, 0f, 0f, Space.Self); // collapse
             Destroy(gameObject, corpseLifetime);

@@ -77,6 +77,9 @@ namespace ZombieSurvival.Zombies
         /// <summary>True when it has the player and is chasing or attacking — used by audio / panic systems.</summary>
         public bool IsHunting => state == State.Chase || state == State.Attack;
 
+        /// <summary>True while in melee range and swinging — drives the lunge/grab animation.</summary>
+        public bool IsAttacking => state == State.Attack;
+
         private void OnEnable()  => NoiseManager.OnNoise += OnHeardNoise;
         private void OnDisable() => NoiseManager.OnNoise -= OnHeardNoise;
 
