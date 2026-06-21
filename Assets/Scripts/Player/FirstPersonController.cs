@@ -93,6 +93,9 @@ namespace ZombieSurvival.Player
             Vector3 input = Vector3.ClampMagnitude(new Vector3(x, 0f, z), 1f);
             Vector3 move = transform.right * input.x + transform.forward * input.z;
 
+            // Holding sprint stands you up if crouched, so you can't get stuck slow.
+            if (kb.leftShiftKey.isPressed && isCrouching && z > 0.1f) isCrouching = false;
+
             bool wantsSprint = kb.leftShiftKey.isPressed && !isCrouching && z > 0.1f;
             bool canSprint = wantsSprint && (survivor == null || survivor.CanSprint);
             float speed = isCrouching ? crouchSpeed : (canSprint ? sprintSpeed : walkSpeed);

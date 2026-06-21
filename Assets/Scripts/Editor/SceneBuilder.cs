@@ -150,6 +150,13 @@ namespace ZombieSurvival.EditorTools
             var surface = go.AddComponent<NavMeshSurface>();
             surface.collectObjects = CollectObjects.All;
             surface.BuildNavMesh();
+
+            var tri = NavMesh.CalculateTriangulation();
+            if (tri.vertices.Length == 0)
+                Debug.LogError("NavMesh bake produced 0 vertices — zombies won't move. " +
+                               "Check that the Ground has a collider/renderer.");
+            else
+                Debug.Log($"NavMesh baked OK ({tri.vertices.Length} vertices).");
         }
 
         private static void BuildZombies(Transform parent, int count)

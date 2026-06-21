@@ -31,10 +31,10 @@ namespace ZombieSurvival.Zombies
         [SerializeField] private float hearingSensitivity = 1f;
 
         [Header("Movement")]
-        [SerializeField] private float wanderSpeed = 0.9f;
+        [SerializeField] private float wanderSpeed = 1.3f;
         [SerializeField] private float chaseSpeed = 3.2f;
-        [SerializeField] private float wanderRadius = 8f;
-        [SerializeField] private float wanderInterval = 5f;
+        [SerializeField] private float wanderRadius = 10f;
+        [SerializeField] private float wanderInterval = 4f;
 
         [Header("Attack")]
         [SerializeField] private float attackRange = 1.8f;
