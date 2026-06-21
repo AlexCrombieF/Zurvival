@@ -12,10 +12,10 @@ namespace ZombieSurvival.Player
     /// </summary>
     public class ThreatResponse : MonoBehaviour
     {
-        [SerializeField] private float threatRange = 18f;
+        [SerializeField] private float threatRange = 16f;
         [SerializeField] private float minHeartHz = 1.0f;
-        [SerializeField] private float maxHeartHz = 2.6f;
-        [SerializeField] private float maxVignetteAlpha = 0.7f;
+        [SerializeField] private float maxHeartHz = 2.4f;
+        [SerializeField] private float maxVignetteAlpha = 0.45f;
 
         private SurvivorState survivor;
         private AudioSource heart;
@@ -85,8 +85,9 @@ namespace ZombieSurvival.Player
 
         private void OnGUI()
         {
-            if (threat <= 0.05f) return;
-            float pulse = 0.55f + 0.45f * Mathf.Sin(pulsePhase * 2f * Mathf.PI);
+            if (threat <= 0.08f) return;
+            // Gentle pulse (0.7..1.0) rather than a hard on/off flash.
+            float pulse = 0.85f + 0.15f * Mathf.Sin(pulsePhase * 2f * Mathf.PI);
             float alpha = threat * maxVignetteAlpha * pulse;
             var prev = GUI.color;
             GUI.color = new Color(1f, 1f, 1f, alpha);

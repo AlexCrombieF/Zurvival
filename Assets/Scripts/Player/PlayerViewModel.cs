@@ -4,37 +4,38 @@ using UnityEngine.InputSystem;
 namespace ZombieSurvival.Player
 {
     /// <summary>
-    /// A first-person viewmodel built from primitives at runtime: two arms gripping
-    /// a weapon, parented to the camera. Animated entirely in code — idle bob while
-    /// moving, weapon sway from mouse movement, and a procedural swing arc.
+    /// First-person viewmodel built from primitives at runtime: two hands gripping
+    /// a weapon (handle + head), with forearms leading down toward the body. The
+    /// hands are children of the weapon so they always sit ON the handle, even as
+    /// it's recoloured/resized for different weapons.
     ///
-    /// Uses an UNLIT material so the hands are always visible regardless of the
-    /// day/night lighting, and the player camera's near-clip is shrunk (in the
-    /// scene builder) so close geometry isn't clipped away. Put this on the Player.
+    /// Animated in code: idle bob, mouse sway, and a proper swing arc
+    /// (wind-up -> fast chop -> ease-back recovery). Unlit materials + a small
+    /// camera near-clip (set by the scene builder) keep it visible. Put on Player.
     /// </summary>
     public class PlayerViewModel : MonoBehaviour
     {
         [Header("Rest pose (camera-local space)")]
-        [SerializeField] private Vector3 restPosition = new Vector3(0.16f, -0.17f, 0.42f);
-        [SerializeField] private Vector3 restEuler = new Vector3(0f, -6f, 0f);
+        [SerializeField] private Vector3 restPosition = new Vector3(0.13f, -0.20f, 0.5f);
+        [SerializeField] private Vector3 restEuler = new Vector3(0f, -4f, 0f);
 
-        [Header("Swing")]
-        [SerializeField] private float swingDuration = 0.4f;
-        [SerializeField] private float swingPitch = 75f;
-        [SerializeField] private float swingYaw = -28f;
-        [SerializeField] private float swingRoll = 16f;
-        [SerializeField] private float swingLunge = 0.12f;
+        [Header("Swing arc")]
+        [SerializeField] private float swingDuration = 0.45f;
+        [SerializeField] private float swingPitch = 95f;   // chop down angle
+        [SerializeField] private float swingYaw = -32f;    // sweep across
+        [SerializeField] private float swingRoll = 22f;
+        [SerializeField] private float swingLunge = 0.14f; // forward thrust
 
         [Header("Feel")]
         [SerializeField] private float bobAmount = 0.012f;
         [SerializeField] private float swayAmount = 0.02f;
 
         private Transform root;
+        private Transform weapon;
+        private Transform handle;
+        private Renderer handleRenderer;
         private Quaternion restRot;
         private CharacterController body;
-
-        private Transform pipe;
-        private Renderer pipeRenderer;
 
         private float swingTimer;
         private float bobPhase;
@@ -50,21 +51,21 @@ namespace ZombieSurvival.Player
 
             restRot = Quaternion.Euler(restEuler);
             BuildGeometry(cam.transform);
-            Debug.Log("PlayerViewModel built under camera — you should see arms + a weapon lower-right.");
+            Debug.Log("PlayerViewModel built — two hands gripping a weapon, lower-centre/right.");
         }
 
         public void Swing() => swingTimer = swingDuration;
 
-        /// <summary>Recolor/resize the held weapon when a new one is equipped.</summary>
+        /// <summary>Recolour/resize the held weapon when a new one is equipped.</summary>
         public void SetWeaponVisual(Color color, float length)
         {
-            if (pipe == null) return;
-            pipe.localScale = new Vector3(0.045f, Mathf.Max(0.1f, length), 0.045f);
-            if (pipeRenderer != null)
+            if (handle == null) return;
+            handle.localScale = new Vector3(0.04f, Mathf.Max(0.12f, length), 0.04f);
+            if (handleRenderer != null)
             {
-                pipeRenderer.material.color = color;
-                if (pipeRenderer.material.HasProperty("_BaseColor"))
-                    pipeRenderer.material.SetColor("_BaseColor", color);
+                handleRenderer.material.color = color;
+                if (handleRenderer.material.HasProperty("_BaseColor"))
+                    handleRenderer.material.SetColor("_BaseColor", color);
             }
         }
 
@@ -87,16 +88,24 @@ namespace ZombieSurvival.Player
             if (swingTimer > 0f)
             {
                 swingTimer -= Time.deltaTime;
-                float p = Mathf.Clamp01(1f - swingTimer / swingDuration);
-                float arc = Mathf.Sin(p * Mathf.PI);
-                float windup = Mathf.Sin(p * Mathf.PI * 0.5f);
-                swingRot = Quaternion.Euler(arc * swingPitch - (1f - windup) * 12f,
-                                            arc * swingYaw, arc * swingRoll);
-                swingPos = new Vector3(0f, 0f, arc * swingLunge);
+                float t = Mathf.Clamp01(1f - swingTimer / swingDuration);
+                float arc = SwingArc(t); // -0.45 (raised) .. 1 (struck) .. 0 (rest)
+                swingRot = Quaternion.Euler(arc * swingPitch, arc * swingYaw, arc * swingRoll);
+                swingPos = new Vector3(arc * 0.03f,
+                                       -Mathf.Max(0f, arc) * 0.03f,
+                                       arc * swingLunge);
             }
 
             root.localPosition = restPosition + bob + swingPos;
             root.localRotation = restRot * swayRot * swingRot;
+        }
+
+        /// <summary>Wind-up (raise), fast chop, then ease back. Returns -0.45..1..0.</summary>
+        private static float SwingArc(float t)
+        {
+            if (t < 0.30f) return Mathf.SmoothStep(0f, -0.45f, t / 0.30f);          // raise
+            if (t < 0.52f) return Mathf.SmoothStep(-0.45f, 1f, (t - 0.30f) / 0.22f); // chop
+            return Mathf.SmoothStep(1f, 0f, (t - 0.52f) / 0.48f);                    // recover
         }
 
         private void BuildGeometry(Transform cam)
@@ -106,28 +115,46 @@ namespace ZombieSurvival.Player
             root.localPosition = restPosition;
             root.localRotation = restRot;
 
-            var metal = UnlitMat(new Color(0.3f, 0.3f, 0.33f));
+            var metal = UnlitMat(new Color(0.32f, 0.32f, 0.35f));
+            var dark = UnlitMat(new Color(0.18f, 0.18f, 0.2f));
             var skin = UnlitMat(new Color(0.76f, 0.6f, 0.5f));
 
-            pipe = MakePart(PrimitiveType.Cylinder, "Pipe", metal,
-                new Vector3(0f, 0.02f, 0.1f), new Vector3(72f, 0f, 6f), new Vector3(0.045f, 0.3f, 0.045f));
-            pipeRenderer = pipe.GetComponent<Renderer>();
+            // Weapon group, held at an angle. Hands attach to this so they stay gripped.
+            weapon = new GameObject("Weapon").transform;
+            weapon.SetParent(root, false);
+            weapon.localPosition = new Vector3(0.03f, 0.04f, 0.05f);
+            weapon.localRotation = Quaternion.Euler(42f, 8f, 18f);
 
-            MakePart(PrimitiveType.Capsule, "ArmR", skin,
-                new Vector3(0.03f, -0.13f, -0.04f), new Vector3(62f, 0f, 8f), new Vector3(0.07f, 0.18f, 0.07f));
+            // Handle along the weapon's local Y axis.
+            handle = MakeChild(weapon, PrimitiveType.Cylinder, "Handle", metal,
+                Vector3.zero, Vector3.zero, new Vector3(0.04f, 0.26f, 0.04f));
+            handleRenderer = handle.GetComponent<Renderer>();
 
-            MakePart(PrimitiveType.Capsule, "ArmL", skin,
-                new Vector3(-0.09f, -0.10f, 0.03f), new Vector3(58f, -22f, -4f), new Vector3(0.07f, 0.16f, 0.07f));
+            // Weapon head at the top of the handle.
+            MakeChild(weapon, PrimitiveType.Cube, "Head", dark,
+                new Vector3(0f, 0.26f, 0f), Vector3.zero, new Vector3(0.1f, 0.13f, 0.1f));
+
+            // Two hands gripping the lower half of the handle.
+            MakeChild(weapon, PrimitiveType.Cube, "HandUpper", skin,
+                new Vector3(0f, -0.02f, 0f), Vector3.zero, new Vector3(0.09f, 0.07f, 0.11f));
+            MakeChild(weapon, PrimitiveType.Cube, "HandLower", skin,
+                new Vector3(0f, -0.16f, 0f), Vector3.zero, new Vector3(0.09f, 0.07f, 0.11f));
+
+            // Forearms leading from the grip down toward the body.
+            MakeChild(root, PrimitiveType.Capsule, "ForearmR", skin,
+                new Vector3(0.07f, -0.17f, -0.02f), new Vector3(64f, 6f, 10f), new Vector3(0.065f, 0.18f, 0.065f));
+            MakeChild(root, PrimitiveType.Capsule, "ForearmL", skin,
+                new Vector3(-0.05f, -0.15f, 0.02f), new Vector3(66f, -14f, -6f), new Vector3(0.065f, 0.17f, 0.065f));
         }
 
-        private Transform MakePart(PrimitiveType type, string name, Material mat,
-                                   Vector3 localPos, Vector3 localEuler, Vector3 scale)
+        private Transform MakeChild(Transform parent, PrimitiveType type, string name, Material mat,
+                                    Vector3 localPos, Vector3 localEuler, Vector3 scale)
         {
             var go = GameObject.CreatePrimitive(type);
             go.name = name;
             var col = go.GetComponent<Collider>();
             if (col != null) Destroy(col); // viewmodel must not block the melee raycast
-            go.transform.SetParent(root, false);
+            go.transform.SetParent(parent, false);
             go.transform.localPosition = localPos;
             go.transform.localRotation = Quaternion.Euler(localEuler);
             go.transform.localScale = scale;
