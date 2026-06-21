@@ -80,6 +80,23 @@ namespace ZombieSurvival.Audio
             return Make("thud", data);
         }
 
+        /// <summary>Airy "whoosh" of a weapon swung through the air.</summary>
+        public static AudioClip Whoosh()
+        {
+            int n = Mathf.RoundToInt(0.28f * SampleRate);
+            var data = new float[n];
+            float last = 0f;
+            for (int i = 0; i < n; i++)
+            {
+                float p = (float)i / n;
+                float env = Mathf.Sin(p * Mathf.PI);            // swell then fade
+                float noise = Random.value * 2f - 1f;
+                last = Mathf.Lerp(last, noise, 0.5f);           // soften to a breathy hiss
+                data[i] = last * env * 0.3f;
+            }
+            return Make("whoosh", data);
+        }
+
         private static float Thump(float t, float start, float freq)
         {
             if (t < start) return 0f;

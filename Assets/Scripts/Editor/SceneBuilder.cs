@@ -125,6 +125,7 @@ namespace ZombieSurvival.EditorTools
 
             player.AddComponent<SurvivorState>();
             player.AddComponent<FirstPersonController>();
+            player.AddComponent<PlayerViewModel>();
             player.AddComponent<PlayerMelee>();
             player.AddComponent<PlayerInteractor>();
             player.AddComponent<PlayerHUD>();

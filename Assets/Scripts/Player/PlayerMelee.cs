@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using ZombieSurvival.Audio;
@@ -7,10 +8,10 @@ using ZombieSurvival.Zombies;
 namespace ZombieSurvival.Player
 {
     /// <summary>
-    /// Left-click melee swing. Costs stamina, has a cooldown, makes noise (a miss
-    /// is quieter than a connecting hit), and does a forward raycast from the
-    /// camera. Hitting a zombie's head is an instant kill; body hits chip its
-    /// toughness. You will get tired mid-fight — that's intentional.
+    /// Left-click melee swing. Triggers the viewmodel swing animation, plays a
+    /// whoosh, then lands the actual hit on the mid-swing impact frame so the
+    /// damage feels tied to the animation. Costs stamina, has a cooldown, makes
+    /// noise, and a headshot is an instant kill.
     /// </summary>
     public class PlayerMelee : MonoBehaviour
     {
@@ -19,6 +20,8 @@ namespace ZombieSurvival.Player
         [SerializeField] private float force = 22f;
         [SerializeField] private float cooldown = 0.6f;
         [SerializeField] private float staminaCost = 12f;
+        [Tooltip("Seconds into the swing when the pipe connects.")]
+        [SerializeField] private float impactDelay = 0.13f;
 
         [Header("Noise (radius in metres)")]
         [SerializeField] private float swingNoiseRadius = 4f;
@@ -26,6 +29,7 @@ namespace ZombieSurvival.Player
 
         private Camera cam;
         private SurvivorState survivor;
+        private PlayerViewModel viewModel;
         private AudioSource sfx;
         private float cooldownTimer;
 
@@ -33,6 +37,7 @@ namespace ZombieSurvival.Player
         {
             cam = GetComponentInChildren<Camera>();
             survivor = GetComponent<SurvivorState>();
+            viewModel = GetComponent<PlayerViewModel>();
             sfx = gameObject.AddComponent<AudioSource>();
             sfx.spatialBlend = 0f;
             sfx.playOnAwake = false;
@@ -46,16 +51,28 @@ namespace ZombieSurvival.Player
             if (Mouse.current == null || cam == null) return;
 
             if (Mouse.current.leftButton.wasPressedThisFrame && cooldownTimer <= 0f)
-                Swing();
+                StartSwing();
         }
 
-        private void Swing()
+        private void StartSwing()
         {
             if (survivor != null && survivor.Stamina < staminaCost) return; // too exhausted
 
             cooldownTimer = cooldown;
             survivor?.DrainStamina(staminaCost);
+            viewModel?.Swing();
+
+            sfx.pitch = Random.Range(0.95f, 1.1f);
+            sfx.PlayOneShot(ProceduralSfx.Whoosh());
             NoiseManager.Emit(transform.position, swingNoiseRadius);
+
+            StartCoroutine(LandHit());
+        }
+
+        private IEnumerator LandHit()
+        {
+            yield return new WaitForSeconds(impactDelay);
+            if (cam == null) yield break;
 
             Vector3 origin = cam.transform.position + cam.transform.forward * 0.2f;
             if (Physics.Raycast(origin, cam.transform.forward, out var hit, reach))
