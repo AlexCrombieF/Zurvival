@@ -55,6 +55,10 @@ namespace ZombieSurvival.Zombies
         private float attackTimer;
         private float memoryTimer;
 
+        private float staggerTimer;
+        private Vector3 knockDir;
+        [SerializeField] private float knockbackSpeed = 2.5f;
+
         private void Awake()
         {
             agent = GetComponent<NavMeshAgent>();
@@ -76,10 +80,30 @@ namespace ZombieSurvival.Zombies
         private void OnEnable()  => NoiseManager.OnNoise += OnHeardNoise;
         private void OnDisable() => NoiseManager.OnNoise -= OnHeardNoise;
 
+        /// <summary>Knock the zombie back and briefly interrupt it (called on a melee hit).</summary>
+        public void Stagger(Vector3 fromDir, float force)
+        {
+            staggerTimer = Mathf.Clamp(force / 60f, 0.12f, 0.45f);
+            knockDir = new Vector3(fromDir.x, 0f, fromDir.z).normalized;
+        }
+
         private void Update()
         {
             if (health != null && health.IsDead) return;
             if (player == null) return;
+
+            // Stagger: shoved backward and unable to act for a moment.
+            if (staggerTimer > 0f)
+            {
+                staggerTimer -= Time.deltaTime;
+                if (agent.enabled)
+                {
+                    agent.isStopped = true;
+                    agent.Move(knockDir * knockbackSpeed * Time.deltaTime);
+                }
+                return;
+            }
+            if (agent.enabled && agent.isStopped) agent.isStopped = false;
 
             bool canSee = CanSeePlayer();
             if (canSee)

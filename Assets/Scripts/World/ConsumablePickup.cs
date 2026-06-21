@@ -20,6 +20,16 @@ namespace ZombieSurvival.World
 
         public string Prompt => $"Press E to use {displayName}";
 
+        /// <summary>Set values from code (used by the scene builder).</summary>
+        public void Configure(string name, float nutrition, float hydration, float healing, bool bandages)
+        {
+            displayName = name;
+            this.nutrition = nutrition;
+            this.hydration = hydration;
+            this.healing = healing;
+            this.bandages = bandages;
+        }
+
         public void Interact(GameObject user)
         {
             var s = user.GetComponent<SurvivorState>();

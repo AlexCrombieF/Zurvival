@@ -5,19 +5,17 @@ namespace ZombieSurvival.Player
 {
     /// <summary>
     /// A first-person viewmodel built from primitives at runtime: two arms gripping
-    /// a pipe, parented to the camera. Animated entirely in code — idle bob while
-    /// moving, weapon sway from mouse movement, and a procedural swing arc
-    /// (wind-up, chop, recover) triggered by Swing(). No rigged mesh or imported
-    /// animation clips needed. Put this on the Player.
+    /// a weapon, parented to the camera. Animated entirely in code — idle bob while
+    /// moving, weapon sway from mouse movement, and a procedural swing arc.
     ///
-    /// Note: as a prototype it can clip into walls when you're right up against
-    /// them. The proper fix later is a dedicated viewmodel camera/layer — overkill
-    /// for now.
+    /// Uses an UNLIT material so the hands are always visible regardless of the
+    /// day/night lighting, and the player camera's near-clip is shrunk (in the
+    /// scene builder) so close geometry isn't clipped away. Put this on the Player.
     /// </summary>
     public class PlayerViewModel : MonoBehaviour
     {
         [Header("Rest pose (camera-local space)")]
-        [SerializeField] private Vector3 restPosition = new Vector3(0.18f, -0.20f, 0.45f);
+        [SerializeField] private Vector3 restPosition = new Vector3(0.16f, -0.17f, 0.42f);
         [SerializeField] private Vector3 restEuler = new Vector3(0f, -6f, 0f);
 
         [Header("Swing")]
@@ -35,6 +33,9 @@ namespace ZombieSurvival.Player
         private Quaternion restRot;
         private CharacterController body;
 
+        private Transform pipe;
+        private Renderer pipeRenderer;
+
         private float swingTimer;
         private float bobPhase;
         private Quaternion swayRot = Quaternion.identity;
@@ -49,36 +50,46 @@ namespace ZombieSurvival.Player
 
             restRot = Quaternion.Euler(restEuler);
             BuildGeometry(cam.transform);
+            Debug.Log("PlayerViewModel built under camera — you should see arms + a weapon lower-right.");
         }
 
-        /// <summary>Start a swing animation (called by PlayerMelee).</summary>
         public void Swing() => swingTimer = swingDuration;
+
+        /// <summary>Recolor/resize the held weapon when a new one is equipped.</summary>
+        public void SetWeaponVisual(Color color, float length)
+        {
+            if (pipe == null) return;
+            pipe.localScale = new Vector3(0.045f, Mathf.Max(0.1f, length), 0.045f);
+            if (pipeRenderer != null)
+            {
+                pipeRenderer.material.color = color;
+                if (pipeRenderer.material.HasProperty("_BaseColor"))
+                    pipeRenderer.material.SetColor("_BaseColor", color);
+            }
+        }
 
         private void Update()
         {
             if (root == null) return;
 
-            // Idle bob, scaled by how fast you're moving.
             float speed = body != null ? new Vector2(body.velocity.x, body.velocity.z).magnitude : 0f;
             bobPhase += Time.deltaTime * (4f + speed * 1.6f);
             float intensity = Mathf.Clamp01(speed / 3f + 0.12f);
             Vector3 bob = new Vector3(Mathf.Cos(bobPhase) * bobAmount,
                                       -Mathf.Abs(Mathf.Sin(bobPhase)) * bobAmount, 0f) * intensity;
 
-            // Weapon sway lags behind mouse movement.
             Vector2 m = Mouse.current != null ? Mouse.current.delta.ReadValue() : Vector2.zero;
             var targetSway = Quaternion.Euler(m.y * swayAmount, -m.x * swayAmount, 0f);
             swayRot = Quaternion.Slerp(swayRot, targetSway, 12f * Time.deltaTime);
 
-            // Swing arc.
             Quaternion swingRot = Quaternion.identity;
             Vector3 swingPos = Vector3.zero;
             if (swingTimer > 0f)
             {
                 swingTimer -= Time.deltaTime;
                 float p = Mathf.Clamp01(1f - swingTimer / swingDuration);
-                float arc = Mathf.Sin(p * Mathf.PI);          // 0 -> 1 -> 0
-                float windup = Mathf.Sin(p * Mathf.PI * 0.5f); // slight raise early
+                float arc = Mathf.Sin(p * Mathf.PI);
+                float windup = Mathf.Sin(p * Mathf.PI * 0.5f);
                 swingRot = Quaternion.Euler(arc * swingPitch - (1f - windup) * 12f,
                                             arc * swingYaw, arc * swingRoll);
                 swingPos = new Vector3(0f, 0f, arc * swingLunge);
@@ -95,40 +106,39 @@ namespace ZombieSurvival.Player
             root.localPosition = restPosition;
             root.localRotation = restRot;
 
-            var metal = Mat(new Color(0.3f, 0.3f, 0.33f));
-            var skin = Mat(new Color(0.76f, 0.6f, 0.5f));
+            var metal = UnlitMat(new Color(0.3f, 0.3f, 0.33f));
+            var skin = UnlitMat(new Color(0.76f, 0.6f, 0.5f));
 
-            // Weapon: a pipe held diagonally in front.
-            MakePart(PrimitiveType.Cylinder, "Pipe", metal,
-                new Vector3(0f, 0.02f, 0.12f), new Vector3(72f, 0f, 6f), new Vector3(0.045f, 0.3f, 0.045f));
+            pipe = MakePart(PrimitiveType.Cylinder, "Pipe", metal,
+                new Vector3(0f, 0.02f, 0.1f), new Vector3(72f, 0f, 6f), new Vector3(0.045f, 0.3f, 0.045f));
+            pipeRenderer = pipe.GetComponent<Renderer>();
 
-            // Right forearm gripping the pipe.
             MakePart(PrimitiveType.Capsule, "ArmR", skin,
                 new Vector3(0.03f, -0.13f, -0.04f), new Vector3(62f, 0f, 8f), new Vector3(0.07f, 0.18f, 0.07f));
 
-            // Left forearm bracing it.
             MakePart(PrimitiveType.Capsule, "ArmL", skin,
                 new Vector3(-0.09f, -0.10f, 0.03f), new Vector3(58f, -22f, -4f), new Vector3(0.07f, 0.16f, 0.07f));
         }
 
-        private void MakePart(PrimitiveType type, string name, Material mat,
-                              Vector3 localPos, Vector3 localEuler, Vector3 scale)
+        private Transform MakePart(PrimitiveType type, string name, Material mat,
+                                   Vector3 localPos, Vector3 localEuler, Vector3 scale)
         {
             var go = GameObject.CreatePrimitive(type);
             go.name = name;
-            // Viewmodel must not have colliders — they'd block the melee raycast.
             var col = go.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+            if (col != null) Destroy(col); // viewmodel must not block the melee raycast
             go.transform.SetParent(root, false);
             go.transform.localPosition = localPos;
             go.transform.localRotation = Quaternion.Euler(localEuler);
             go.transform.localScale = scale;
             go.GetComponent<Renderer>().sharedMaterial = mat;
+            return go.transform;
         }
 
-        private static Material Mat(Color c)
+        private static Material UnlitMat(Color c)
         {
-            var shader = Shader.Find("Universal Render Pipeline/Lit");
+            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) shader = Shader.Find("Unlit/Color");
             if (shader == null) shader = Shader.Find("Standard");
             var m = new Material(shader) { color = c };
             if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);

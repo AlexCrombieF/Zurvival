@@ -122,6 +122,7 @@ namespace ZombieSurvival.EditorTools
             cam.transform.SetParent(player.transform);
             cam.transform.localPosition = new Vector3(0f, 1.6f, 0f);
             cam.transform.localRotation = Quaternion.identity;
+            cam.nearClipPlane = 0.05f; // so the close-up viewmodel hands aren't clipped away
 
             player.AddComponent<SurvivorState>();
             player.AddComponent<FirstPersonController>();
@@ -183,27 +184,62 @@ namespace ZombieSurvival.EditorTools
                 head.transform.localPosition = new Vector3(0f, 0.9f, 0f);
                 head.transform.localScale = Vector3.one * 0.55f;
                 head.GetComponent<Renderer>().sharedMaterial = headMat;
+
+                // Outstretched arms — visible, and part of the body hitbox.
+                MakeZombieArm(z.transform, mat, true);
+                MakeZombieArm(z.transform, mat, false);
             }
+        }
+
+        private static void MakeZombieArm(Transform zombie, Material mat, bool left)
+        {
+            var arm = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            arm.name = "Arm";
+            arm.transform.SetParent(zombie);
+            float side = left ? -1f : 1f;
+            arm.transform.localPosition = new Vector3(0.42f * side, 0.35f, 0.35f);
+            arm.transform.localRotation = Quaternion.Euler(75f, 0f, 12f * side);
+            arm.transform.localScale = new Vector3(0.18f, 0.4f, 0.18f);
+            arm.GetComponent<Renderer>().sharedMaterial = mat;
         }
 
         private static void BuildPickups(Transform parent)
         {
-            var mat = ColorMat(new Color(0.9f, 0.8f, 0.2f));
-            Vector3[] spots = { new Vector3(3, 0.5f, 3), new Vector3(-5, 0.5f, 2), new Vector3(2, 0.5f, -7) };
-            string[] names = { "Canned Food", "Water Bottle", "Bandage" };
+            // Consumables: (name, nutrition, hydration, healing, bandages, colour, position)
+            MakeConsumable(parent, "Canned Food",  40f, 0f,  0f,  false, new Color(0.85f, 0.7f, 0.2f), new Vector3(3f, 0.4f, 3f));
+            MakeConsumable(parent, "Water Bottle", 0f,  50f, 0f,  false, new Color(0.3f, 0.6f, 0.95f), new Vector3(-5f, 0.4f, 2f));
+            MakeConsumable(parent, "Water Bottle", 0f,  50f, 0f,  false, new Color(0.3f, 0.6f, 0.95f), new Vector3(6f, 0.4f, -3f));
+            MakeConsumable(parent, "Bandage",      0f,  0f,  25f, true,  new Color(0.95f, 0.95f, 0.95f), new Vector3(2f, 0.4f, -7f));
+            MakeConsumable(parent, "Bandage",      0f,  0f,  25f, true,  new Color(0.95f, 0.95f, 0.95f), new Vector3(-8f, 0.4f, -2f));
 
-            for (int i = 0; i < spots.Length; i++)
-            {
-                var p = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                p.name = "Pickup_" + names[i];
-                p.transform.SetParent(parent);
-                p.transform.position = spots[i];
-                p.transform.localScale = Vector3.one * 0.4f;
-                p.GetComponent<Renderer>().sharedMaterial = mat;
-                p.AddComponent<ConsumablePickup>();
-                // Note: tweak each pickup's nutrition/hydration/healing in the
-                // Inspector — they default to canned food values.
-            }
+            // Melee weapons: (data, colour comes from data, position)
+            MakeWeapon(parent, new MeleeWeaponData("Baseball Bat", 35f, 2.4f, 0.45f, 10f, new Color(0.55f, 0.35f, 0.15f), 0.45f), new Vector3(-3f, 0.5f, 5f));
+            MakeWeapon(parent, new MeleeWeaponData("Fire Axe",     60f, 2.2f, 0.85f, 18f, new Color(0.6f, 0.1f, 0.1f),    0.4f),  new Vector3(8f, 0.5f, 4f));
+            MakeWeapon(parent, new MeleeWeaponData("Kitchen Knife", 18f, 1.6f, 0.35f, 6f, new Color(0.8f, 0.8f, 0.85f),  0.25f), new Vector3(4f, 0.5f, -4f));
+        }
+
+        private static void MakeConsumable(Transform parent, string name, float nutrition, float hydration,
+                                           float healing, bool bandages, Color color, Vector3 pos)
+        {
+            var p = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            p.name = "Pickup_" + name;
+            p.transform.SetParent(parent);
+            p.transform.position = pos;
+            p.transform.localScale = Vector3.one * 0.4f;
+            p.GetComponent<Renderer>().sharedMaterial = ColorMat(color);
+            p.AddComponent<ConsumablePickup>().Configure(name, nutrition, hydration, healing, bandages);
+        }
+
+        private static void MakeWeapon(Transform parent, MeleeWeaponData data, Vector3 pos)
+        {
+            var p = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            p.name = "Weapon_" + data.name;
+            p.transform.SetParent(parent);
+            p.transform.position = pos;
+            p.transform.localScale = new Vector3(0.12f, 0.12f, 0.8f); // weapon-ish proportions
+            p.transform.localRotation = Quaternion.Euler(0f, 0f, 25f);
+            p.GetComponent<Renderer>().sharedMaterial = ColorMat(data.color);
+            p.AddComponent<WeaponPickup>().Configure(data);
         }
     }
 }
